@@ -1,4 +1,4 @@
-﻿#include <iostream>
+#include <iostream>
 #include <conio.h>
 #include <Windows.h>
 #include <vector>
@@ -13,7 +13,12 @@ int ammo;
 int randWidth, randHeight;
 
 const int MAX_STEPS = 2;
-int steps;
+const int MAX_STEPS_SPAWN = 16;
+
+int steps, steps_to_spawnMobs;
+
+int rangeX;
+int rangeY;
 
 int bulletX, bulletY;
 std::vector<int> enemyX, enemyY;
@@ -59,6 +64,11 @@ void map_initialization()
 					map[y][x] = '@';
 				}
 
+				if (Y == bulletY && X == bulletX)
+				{
+					map[bulletY][bulletX] = '+';
+				}
+
 				for (int i = 0; i < enemyX.size(); i++)
 				{
 					if (enemyX[i] == X && enemyY[i] == Y)
@@ -87,6 +97,7 @@ void initialization()
 	score = 0;
 	ammo = 20;
 
+	steps_to_spawnMobs = MAX_STEPS_SPAWN;
 	steps = MAX_STEPS;
 
 	gameActive = true;
@@ -96,7 +107,7 @@ void initialization()
 
 	map_initialization();
 
-	for (int i = 0; i < 150; i++)
+	for (int i = 0; i < 20; i++)
 	{
 		do
 		{
@@ -119,30 +130,37 @@ void Render()
 	{
 		std::cout << map[i] << "\n";
 	}
+	std::cout << "ammo: " << ammo << "   score: " << score << "\n";
+	if (ammo <= 0)
+	{
+		std::cout << "You need ammo\n";
+	}
 }
 
 void Input()
 {
 	switch (_getch())
 	{
-	case 'a':	
-		key = LEFT;	
+	case 75:
+		key = LEFT;
 		break;
-	case 'd':	
+	case 77:
 		key = RIGHT;
 		break;
-	case 'w':		
-		key = UP;	
+	case 72:
+		key = UP;
 		break;
-	case 's':
+	case 80:
 		key = DOWN;
+		break;
+	case 32:
+		control = FIRE;
 		break;
 	case 'x':
 		gameActive = false;
 		break;
-	//case 32:
-		//control = FIRE;
-		//break;
+	default:
+		Input();
 	}
 }
 
@@ -157,6 +175,7 @@ void LogicGame()
 			if (map[y - 1][x] == ' ')
 			{
 				y--;
+				steps_to_spawnMobs--;
 				steps--;
 			}
 			break;
@@ -164,6 +183,7 @@ void LogicGame()
 			if (map[y + 1][x] == ' ')
 			{
 				y++;
+				steps_to_spawnMobs--;
 				steps--;
 			}
 			break;
@@ -171,6 +191,7 @@ void LogicGame()
 			if (map[y][x - 1] == ' ')
 			{
 				x--;
+				steps_to_spawnMobs--;
 				steps--;
 			}
 			break;
@@ -178,58 +199,75 @@ void LogicGame()
 			if (map[y][x + 1] == ' ')
 			{
 				x++;
+				steps_to_spawnMobs--;
 				steps--;
 			}
 			break;
 		}
 		break;
-	/*case FIRE:
-		bulletFLy = true;
-		bulletX = x;
-		bulletY = y;
-		ammo--;
-		while (bulletFLy)
+	case FIRE:
+		if (ammo > 0)
 		{
-			switch (key)
+			bulletFLy = true;
+			bulletX = x;
+			bulletY = y;
+			ammo--;
+			steps--;
+			while (bulletFLy)
 			{
-			case UP:
-				bulletY--;
-				break;
-			case DOWN:
-				bulletY++;
-				break;
-			case LEFT:
-				bulletX--;
-				break;
-			case RIGHT:
-				bulletX++;
-				break;
-			}
+				switch (key)
+				{
+				case UP:
+					bulletY--;
+					break;
+				case DOWN:
+					bulletY++;
+					break;
+				case LEFT:
+					bulletX--;
+					break;
+				case RIGHT:
+					bulletX++;
+					break;
+				}
 
-			if (map[bulletY][bulletX] == '#')
-			{
+				if (map[bulletY][bulletX] == '#')
+				{
+					bulletFLy = false;
+				}
+				else if (map[bulletY][bulletX] == '&')
+				{
+					score++;
+					bulletFLy = false;
 
-			}
-			else if (map[bulletY][bulletX] == '&')
-			{
-				score++;
-			}
+					for (int i = 0; enemyX.size(); i++)
+					{
+						if (bulletX == enemyX[i] && bulletY == enemyY[i])
+						{
+							enemyX.erase(enemyX.begin() + i);
+							enemyY.erase(enemyY.begin() + i);
+							map_initialization();
+							Render();
+							break;
+						}
+					}
+				}
 
-			Render();
-		}*/
+				map_initialization();
+				Render();
+			}
+			control = NOFIRE;
+			bulletX = -1;
+			bulletY = -1;
+		}
 	}
 
 	if (steps <= 0)
 	{
-		int rangeX;
-		int rangeY;
-
 		for (int i = 0; i < enemyX.size(); i++)
 		{
 			rangeX = enemyX[i] - x;
 			rangeY = enemyY[i] - y;
-
-
 
 			if (abs(rangeX) > abs(rangeY))
 			{
@@ -285,11 +323,29 @@ void LogicGame()
 		steps = MAX_STEPS;
 	}
 
+	if (steps_to_spawnMobs <= 0)
+	{
+		do
+		{
+			randWidth = rand() % (width - 2) + 1;
+			randHeight = rand() % (height - 2) + 1;
+
+			rangeX = abs(randWidth - x);
+			rangeY = abs(randHeight - y);
+		} while (map[randHeight][randWidth] != ' ');
+
+		enemyX.push_back(randWidth);
+		enemyY.push_back(randHeight);
+
+		steps_to_spawnMobs = MAX_STEPS_SPAWN;
+	}
+
 	map_initialization();
 
 	if (map[y][x] == '&')
 	{
 		gameActive = false;
+		Render();
 	}
 }
 
